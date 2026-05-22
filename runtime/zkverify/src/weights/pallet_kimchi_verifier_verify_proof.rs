@@ -44,7 +44,7 @@
 // --output
 // ./runtime/zkverify/src/weights/pallet_kimchi_verifier_verify_proof.rs
 // --base-path
-// /tmp/zkv-kimchi-bench
+// /tmp/zkv-kimchi-bench-native
 
 #![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
@@ -64,16 +64,7 @@ impl<T: frame_system::Config> pallet_kimchi_verifier_verify_proof::WeightInfo fo
         // Proof Size summary in bytes:
         //  Measured:  `0`
         //  Estimated: `0`
-        // Minimum execution time: 4_291_078_000_000 picoseconds.
-        // Zombienet uses `fast-runtime` and cannot include the benchmarked
-        // Kimchi weight in a normal 2s block. Keep production weights
-        // benchmark-driven while allowing local coverage to exercise the
-        // verifier end-to-end.
-        #[cfg(feature = "fast-runtime")]
-        let weight = Weight::from_parts(1_000_000_000_000, 0);
-        #[cfg(not(feature = "fast-runtime"))]
-        let weight = Weight::from_parts(4_307_497_000_000, 0);
-
-        weight
+        // Minimum execution time: 287_781_000_000 picoseconds.
+        Weight::from_parts(290_415_000_000, 0)
     }
 }

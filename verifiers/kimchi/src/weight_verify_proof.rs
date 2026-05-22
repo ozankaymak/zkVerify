@@ -26,7 +26,7 @@ impl WeightInfo for () {
         // Proof Size summary in bytes:
         //  Measured:  `0`
         //  Estimated: `0`
-        // Minimum execution time: 4_291_078_000_000 picoseconds.
-        Weight::from_parts(4_307_497_000_000, 0)
+        // Minimum execution time: 287_781_000_000 picoseconds.
+        Weight::from_parts(290_415_000_000, 0)
     }
 }

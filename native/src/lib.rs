@@ -20,6 +20,7 @@ use sp_runtime_interface::pass_by::PassByCodec;
 
 mod accelerated_bn;
 mod groth16;
+mod kimchi;
 mod risc0;
 
 #[derive(PassByCodec, Encode, Decode)]
@@ -59,10 +60,15 @@ pub use accelerated_bn::bn254;
 #[cfg(feature = "std")]
 pub use accelerated_bn::bn254::host_calls::HostFunctions as AcceleratedBn254HostFunctions;
 
+pub use kimchi::kimchi_verify;
+#[cfg(feature = "std")]
+pub use kimchi::kimchi_verify::HostFunctions as KimchiVerifyHostFunctions;
+
 #[cfg(feature = "std")]
 pub type HLNativeHostFunctions = (
     Groth16Bn254VerifierHostFunctions,
     Groth16Bls12VerifierHostFunctions,
     Risc0AccelerateHostFunctions,
     AcceleratedBn254HostFunctions,
+    KimchiVerifyHostFunctions,
 );
