@@ -23,13 +23,13 @@ mod groth16;
 mod kimchi;
 mod risc0;
 
-#[derive(PassByCodec, Encode, Decode)]
-#[cfg_attr(test, derive(Debug))]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PassByCodec, Encode, Decode)]
 pub enum VerifyError {
     InvalidInput,
     InvalidProofData,
     VerifyError,
     InvalidVerificationKey,
+    IncompatibleParameters,
 }
 
 impl From<VerifyError> for verifiers_traits::VerifyError {
@@ -38,6 +38,9 @@ impl From<VerifyError> for verifiers_traits::VerifyError {
             VerifyError::InvalidInput => verifiers_traits::VerifyError::InvalidInput,
             VerifyError::InvalidProofData => verifiers_traits::VerifyError::InvalidProofData,
             VerifyError::InvalidVerificationKey => {
+                verifiers_traits::VerifyError::InvalidVerificationKey
+            }
+            VerifyError::IncompatibleParameters => {
                 verifiers_traits::VerifyError::InvalidVerificationKey
             }
             VerifyError::VerifyError => verifiers_traits::VerifyError::VerifyError,
@@ -63,6 +66,8 @@ pub use accelerated_bn::bn254::host_calls::HostFunctions as AcceleratedBn254Host
 pub use kimchi::kimchi_verify;
 #[cfg(feature = "std")]
 pub use kimchi::kimchi_verify::HostFunctions as KimchiVerifyHostFunctions;
+#[cfg(feature = "std")]
+pub use kimchi::prewarm_kimchi_builtin_srs;
 
 #[cfg(feature = "std")]
 pub type HLNativeHostFunctions = (

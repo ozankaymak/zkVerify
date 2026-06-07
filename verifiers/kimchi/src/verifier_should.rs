@@ -16,20 +16,41 @@
 #![cfg(test)]
 
 use super::*;
-use frame_support::{assert_err, traits::ConstU32};
+use frame_support::{assert_err, assert_ok, traits::ConstU32};
 
 pub struct MockConfig;
 
 impl crate::Config for MockConfig {
     type MaxProofSize = ConstU32<1024>;
     type MaxPubs = ConstU32<4>;
-    type MaxSrsSize = ConstU32<2048>;
+    type MaxVkSize = ConstU32<2048>;
+    type WeightInfo = ();
+}
+
+pub struct FixtureConfig;
+
+impl crate::Config for FixtureConfig {
+    type MaxProofSize = ConstU32<8192>;
+    type MaxPubs = ConstU32<64>;
     type MaxVkSize = ConstU32<2048>;
     type WeightInfo = ();
 }
 
 fn dummy_vk() -> Vk<MockConfig> {
-    Vk::new(vec![1_u8, 2, 3], vec![4_u8, 5, 6])
+    Vk::new(vec![1_u8, 2, 3], KimchiSrsId::Vesta16)
+}
+
+#[test]
+fn valid_minimum_domain_fixture_is_accepted() {
+    let proof = include_bytes!("resources/generated_1024/proof.bin").to_vec();
+    let pubs = Vec::new();
+    let vk = Vk::<FixtureConfig>::new(
+        include_bytes!("resources/generated_1024/verifier_index.bin").to_vec(),
+        KimchiSrsId::Vesta16,
+    );
+
+    assert_ok!(Kimchi::<FixtureConfig>::validate_vk(&vk));
+    assert_ok!(Kimchi::<FixtureConfig>::verify_proof(&vk, &proof, &pubs));
 }
 
 #[test]
@@ -50,20 +71,7 @@ mod reject {
     fn oversized_verifier_index_is_rejected() {
         let vk = Vk::new(
             vec![0_u8; MockConfig::max_vk_size() as usize + 1],
-            vec![1_u8],
-        );
-
-        assert_err!(
-            Kimchi::<MockConfig>::validate_vk(&vk),
-            VerifyError::InvalidVerificationKey
-        );
-    }
-
-    #[test]
-    fn oversized_srs_is_rejected() {
-        let vk = Vk::new(
-            vec![1_u8],
-            vec![0_u8; MockConfig::max_srs_size() as usize + 1],
+            KimchiSrsId::Vesta16,
         );
 
         assert_err!(
@@ -74,7 +82,7 @@ mod reject {
 
     #[test]
     fn empty_verifier_material_is_rejected() {
-        let vk = Vk::new(Vec::new(), Vec::new());
+        let vk = Vk::new(Vec::new(), KimchiSrsId::Vesta16);
 
         assert_err!(
             Kimchi::<MockConfig>::validate_vk(&vk),

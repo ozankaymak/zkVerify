@@ -31,8 +31,9 @@ use codec::Encode;
 use frame_support::{ensure, traits::Get, weights::Weight};
 use native::kimchi_verify;
 use pallet_verifiers::traits::{Verifier, VerifyError};
+use sp_core::H256;
 
-pub use crate::vk::KimchiVk as Vk;
+pub use crate::vk::{KimchiSrsId, KimchiVk as Vk};
 pub use crate::weight::WeightInfo;
 pub use crate::weight_verify_proof::WeightInfo as WeightInfoVerifyProof;
 
@@ -48,8 +49,6 @@ pub trait Config: 'static {
     type MaxPubs: frame_support::traits::Get<u32>;
     /// Maximum number of bytes contained in the verifier index payload.
     type MaxVkSize: frame_support::traits::Get<u32>;
-    /// Maximum number of bytes contained in the serialized SRS payload.
-    type MaxSrsSize: frame_support::traits::Get<u32>;
     /// Parameterized weights for Kimchi proof verification.
     type WeightInfo: WeightInfoVerifyProof;
 
@@ -64,10 +63,6 @@ pub trait Config: 'static {
     fn max_vk_size() -> u32 {
         Self::MaxVkSize::get()
     }
-
-    fn max_srs_size() -> u32 {
-        Self::MaxSrsSize::get()
-    }
 }
 
 impl<T: Config> Vk<T> {
@@ -75,10 +70,6 @@ impl<T: Config> Vk<T> {
         if self.verifier_index_bytes.is_empty()
             || self.verifier_index_bytes.len() > T::max_vk_size() as usize
         {
-            return Err(VerifyError::InvalidVerificationKey);
-        }
-
-        if self.srs_bytes.is_empty() || self.srs_bytes.len() > T::max_srs_size() as usize {
             return Err(VerifyError::InvalidVerificationKey);
         }
 
@@ -116,22 +107,25 @@ impl<T: Config> Verifier for Kimchi<T> {
         let rng_seed = make_rng_seed(vk, raw_proof, raw_pubs);
         let pubs_bytes: Vec<u8> = raw_pubs.iter().flat_map(|f| f.iter().copied()).collect();
 
-        kimchi_verify::verify_proof(
+        kimchi_verify::verify_proof_with_builtin_srs(
             &vk.verifier_index_bytes,
-            &vk.srs_bytes,
+            vk.srs_id.log2_size(),
             raw_proof,
             &pubs_bytes,
             &rng_seed,
         )
         .map_err(VerifyError::from)?;
 
-        Ok(Some(T::WeightInfo::verify_proof_domain_4096()))
+        Ok(Some(T::WeightInfo::verify_proof_max_supported()))
     }
 
     fn validate_vk(vk: &Self::Vk) -> Result<(), VerifyError> {
         vk.validate_size()?;
-        kimchi_verify::validate_key(&vk.verifier_index_bytes, &vk.srs_bytes)
-            .map_err(VerifyError::from)
+        kimchi_verify::validate_key_with_builtin_srs(
+            &vk.verifier_index_bytes,
+            vk.srs_id.log2_size(),
+        )
+        .map_err(VerifyError::from)
     }
 
     fn pubs_bytes(pubs: &Self::Pubs) -> Cow<'_, [u8]> {
@@ -142,6 +136,10 @@ impl<T: Config> Verifier for Kimchi<T> {
 
         Cow::Owned(data)
     }
+
+    fn verifier_version_hash(_proof: &Self::Proof) -> H256 {
+        H256(sp_io::hashing::sha2_256(b"kimchi:v1:builtin-srs"))
+    }
 }
 
 pub struct KimchiWeight<W: WeightInfo>(PhantomData<W>);
@@ -151,7 +149,10 @@ impl<T: Config, W: WeightInfo> pallet_verifiers::WeightInfo<Kimchi<T>> for Kimch
         _proof: &<Kimchi<T> as Verifier>::Proof,
         _pubs: &<Kimchi<T> as Verifier>::Pubs,
     ) -> Weight {
-        W::verify_proof()
+        max_weight(
+            W::verify_proof(),
+            T::WeightInfo::verify_proof_max_supported(),
+        )
     }
 
     fn register_vk(_vk: &<Kimchi<T> as Verifier>::Vk) -> Weight {
@@ -176,6 +177,13 @@ impl<T: Config, W: WeightInfo> pallet_verifiers::WeightInfo<Kimchi<T>> for Kimch
     ) -> Weight {
         W::compute_statement_hash()
     }
+}
+
+fn max_weight(left: Weight, right: Weight) -> Weight {
+    Weight::from_parts(
+        left.ref_time().max(right.ref_time()),
+        left.proof_size().max(right.proof_size()),
+    )
 }
 
 /// Compute a deterministic RNG seed from the statement material so that

@@ -15,8 +15,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{Config as VerifierConfig, Kimchi as Verifier, Proof, Pubs, Vk};
-use alloc::vec::Vec;
+use crate::{Config as VerifierConfig, Kimchi as Verifier, KimchiSrsId, Proof, Pubs, Vk, PUB_SIZE};
 use frame_benchmarking::v2::*;
 use pallet_verifiers::benchmarking_utils;
 use pallet_verifiers::traits::Verifier as _;
@@ -26,20 +25,80 @@ pub struct Pallet<T: Config>(crate::Pallet<T>);
 impl<T: crate::Config> Config for T {}
 pub type Call<T> = pallet_verifiers::Call<T, Verifier<T>>;
 
+const DOMAIN_1024_PROOF: &[u8] = include_bytes!("resources/generated_1024/proof.bin");
+const DOMAIN_1024_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_1024/verifier_index.bin");
+const DOMAIN_1024_PUBS: &[u8] = include_bytes!("resources/generated_1024/pubs.bin");
+
+const DOMAIN_2048_PROOF: &[u8] = include_bytes!("resources/generated_2048/proof.bin");
+const DOMAIN_2048_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_2048/verifier_index.bin");
+const DOMAIN_2048_PUBS: &[u8] = include_bytes!("resources/generated_2048/pubs.bin");
+
 const DOMAIN_4096_PROOF: &[u8] = include_bytes!("resources/generated_4096/proof.bin");
 const DOMAIN_4096_VERIFIER_INDEX: &[u8] =
     include_bytes!("resources/generated_4096/verifier_index.bin");
-const DOMAIN_4096_SRS: &[u8] = include_bytes!("resources/generated_4096/srs.bin");
+const DOMAIN_4096_PUBS: &[u8] = &[];
 
-fn domain_4096_data<T: VerifierConfig>() -> (Proof, Vk<T>, Pubs) {
+const DOMAIN_4096_PUBS_64_PROOF: &[u8] =
+    include_bytes!("resources/generated_4096_pubs_64/proof.bin");
+const DOMAIN_4096_PUBS_64_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_4096_pubs_64/verifier_index.bin");
+const DOMAIN_4096_PUBS_64_PUBS: &[u8] = include_bytes!("resources/generated_4096_pubs_64/pubs.bin");
+
+const DOMAIN_65536_PUBS_64_PROOF: &[u8] =
+    include_bytes!("resources/generated_65536_pubs_64/proof.bin");
+const DOMAIN_65536_PUBS_64_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_65536_pubs_64/verifier_index.bin");
+const DOMAIN_65536_PUBS_64_PUBS: &[u8] =
+    include_bytes!("resources/generated_65536_pubs_64/pubs.bin");
+
+const DOMAIN_65536_RECURSIVE_3_PUBS_64_PROOF: &[u8] =
+    include_bytes!("resources/generated_65536_recursive_3_pubs_64/proof.bin");
+const DOMAIN_65536_RECURSIVE_3_PUBS_64_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_65536_recursive_3_pubs_64/verifier_index.bin");
+const DOMAIN_65536_RECURSIVE_3_PUBS_64_PUBS: &[u8] =
+    include_bytes!("resources/generated_65536_recursive_3_pubs_64/pubs.bin");
+
+const DOMAIN_65536_LOOKUP_RECURSIVE_3_PUBS_64_PROOF: &[u8] =
+    include_bytes!("resources/generated_65536_lookup_recursive_3_pubs_64/proof.bin");
+const DOMAIN_65536_LOOKUP_RECURSIVE_3_PUBS_64_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_65536_lookup_recursive_3_pubs_64/verifier_index.bin");
+const DOMAIN_65536_LOOKUP_RECURSIVE_3_PUBS_64_PUBS: &[u8] =
+    include_bytes!("resources/generated_65536_lookup_recursive_3_pubs_64/pubs.bin");
+
+const DOMAIN_65536_XOR_LOOKUP_RECURSIVE_3_PUBS_64_PROOF: &[u8] =
+    include_bytes!("resources/generated_65536_xor_lookup_recursive_3_pubs_64/proof.bin");
+const DOMAIN_65536_XOR_LOOKUP_RECURSIVE_3_PUBS_64_VERIFIER_INDEX: &[u8] =
+    include_bytes!("resources/generated_65536_xor_lookup_recursive_3_pubs_64/verifier_index.bin");
+const DOMAIN_65536_XOR_LOOKUP_RECURSIVE_3_PUBS_64_PUBS: &[u8] =
+    include_bytes!("resources/generated_65536_xor_lookup_recursive_3_pubs_64/pubs.bin");
+
+fn benchmark_data<T: VerifierConfig>(
+    proof: &[u8],
+    verifier_index: &[u8],
+    pubs: &[u8],
+) -> (Proof, Vk<T>, Pubs) {
     (
-        DOMAIN_4096_PROOF.to_vec(),
-        Vk::new(
-            DOMAIN_4096_VERIFIER_INDEX.to_vec(),
-            DOMAIN_4096_SRS.to_vec(),
-        ),
-        Vec::new(),
+        proof.to_vec(),
+        Vk::new(verifier_index.to_vec(), KimchiSrsId::Vesta16),
+        decode_pubs(pubs),
     )
+}
+
+fn decode_pubs(bytes: &[u8]) -> Pubs {
+    assert!(
+        bytes.len().is_multiple_of(PUB_SIZE),
+        "Kimchi public input fixture must be a sequence of {PUB_SIZE}-byte fields"
+    );
+    bytes
+        .chunks_exact(PUB_SIZE)
+        .map(|chunk| {
+            chunk
+                .try_into()
+                .expect("chunks_exact always returns PUB_SIZE bytes")
+        })
+        .collect()
 }
 
 #[allow(clippy::multiple_bound_locations)]
@@ -50,8 +109,124 @@ mod benchmarks {
     benchmarking_utils!(Verifier<T>, crate::Config);
 
     #[benchmark]
+    fn verify_proof_domain_1024() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_1024_PROOF,
+            DOMAIN_1024_VERIFIER_INDEX,
+            DOMAIN_1024_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
+    fn verify_proof_domain_2048() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_2048_PROOF,
+            DOMAIN_2048_VERIFIER_INDEX,
+            DOMAIN_2048_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
     fn verify_proof_domain_4096() {
-        let (proof, vk, pubs) = domain_4096_data::<T>();
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_4096_PROOF,
+            DOMAIN_4096_VERIFIER_INDEX,
+            DOMAIN_4096_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
+    fn verify_proof_domain_4096_pubs_64() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_4096_PUBS_64_PROOF,
+            DOMAIN_4096_PUBS_64_VERIFIER_INDEX,
+            DOMAIN_4096_PUBS_64_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
+    fn verify_proof_domain_65536_pubs_64() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_65536_PUBS_64_PROOF,
+            DOMAIN_65536_PUBS_64_VERIFIER_INDEX,
+            DOMAIN_65536_PUBS_64_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
+    fn verify_proof_domain_65536_recursive_3_pubs_64() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_65536_RECURSIVE_3_PUBS_64_PROOF,
+            DOMAIN_65536_RECURSIVE_3_PUBS_64_VERIFIER_INDEX,
+            DOMAIN_65536_RECURSIVE_3_PUBS_64_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
+    fn verify_proof_domain_65536_lookup_recursive_3_pubs_64() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_65536_LOOKUP_RECURSIVE_3_PUBS_64_PROOF,
+            DOMAIN_65536_LOOKUP_RECURSIVE_3_PUBS_64_VERIFIER_INDEX,
+            DOMAIN_65536_LOOKUP_RECURSIVE_3_PUBS_64_PUBS,
+        );
+
+        let r;
+        #[block]
+        {
+            r = do_verify_proof::<T>(&vk, &proof, &pubs)
+        };
+        assert!(r.is_ok());
+    }
+
+    #[benchmark]
+    fn verify_proof_domain_65536_xor_lookup_recursive_3_pubs_64() {
+        let (proof, vk, pubs) = benchmark_data::<T>(
+            DOMAIN_65536_XOR_LOOKUP_RECURSIVE_3_PUBS_64_PROOF,
+            DOMAIN_65536_XOR_LOOKUP_RECURSIVE_3_PUBS_64_VERIFIER_INDEX,
+            DOMAIN_65536_XOR_LOOKUP_RECURSIVE_3_PUBS_64_PUBS,
+        );
 
         let r;
         #[block]
@@ -90,7 +265,6 @@ mod mock {
         type MaxProofSize = ConstU32<262144>;
         type MaxPubs = ConstU32<64>;
         type MaxVkSize = ConstU32<65536>;
-        type MaxSrsSize = ConstU32<262144>;
         type WeightInfo = ();
     }
 

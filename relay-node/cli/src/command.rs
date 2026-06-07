@@ -363,6 +363,7 @@ pub fn run() -> Result<()> {
 
                     if cfg!(feature = "runtime-benchmarks") {
                         runner.sync_run(|config| {
+                            service::prewarm_native_verifier_parameters()?;
                             cmd.run_with_spec::<sp_runtime::traits::HashingFor<service::Block>, HLNativeHostFunctions>(Some(config.chain_spec))
                                 .map_err(Error::SubstrateCli)
                         })

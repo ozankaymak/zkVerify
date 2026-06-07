@@ -148,7 +148,7 @@ fn pallet_settlement_plonky2() {
 
 #[test]
 fn pallet_settlement_kimchi() {
-    use pallet_kimchi_verifier::{Kimchi, Vk, WeightInfo};
+    use pallet_kimchi_verifier::{Kimchi, KimchiSrsId, Vk, WeightInfo, WeightInfoVerifyProof};
 
     let proof = Vec::<u8>::new();
     let pubs = Vec::<[u8; pallet_kimchi_verifier::PUB_SIZE]>::new();
@@ -160,14 +160,23 @@ fn pallet_settlement_kimchi() {
             &proof,
             &pubs
         ),
-        crate::weights::pallet_kimchi_verifier::ZKVWeight::<Runtime>::verify_proof()
+        {
+            let main =
+                crate::weights::pallet_kimchi_verifier::ZKVWeight::<Runtime>::verify_proof();
+            let verify = <Runtime as pallet_kimchi_verifier::Config>::WeightInfo
+                ::verify_proof_max_supported();
+            frame_support::weights::Weight::from_parts(
+                main.ref_time().max(verify.ref_time()),
+                main.proof_size().max(verify.proof_size()),
+            )
+        }
     );
 
     assert_eq!(
         <<Runtime as pallet_verifiers::Config<Kimchi<Runtime>>>::WeightInfo as
         pallet_verifiers::WeightInfo<Kimchi<Runtime>>>
         ::register_vk(
-            &Vk::new(Vec::new(), Vec::new())
+            &Vk::new(Vec::new(), KimchiSrsId::Vesta16)
         ),
         crate::weights::pallet_kimchi_verifier::ZKVWeight::<Runtime>::register_vk()
     );
@@ -177,9 +186,45 @@ fn pallet_settlement_kimchi() {
 fn pallet_settlement_kimchi_verify_proof() {
     use pallet_kimchi_verifier::WeightInfoVerifyProof;
 
+    type RuntimeWeight = <Runtime as pallet_kimchi_verifier::Config>::WeightInfo;
+    type GeneratedWeight = crate::weights::pallet_kimchi_verifier_verify_proof::ZKVWeight<Runtime>;
+
     assert_eq!(
-        <Runtime as pallet_kimchi_verifier::Config>::WeightInfo::verify_proof_domain_4096(),
-        crate::weights::pallet_kimchi_verifier_verify_proof::ZKVWeight::<Runtime>::verify_proof_domain_4096()
+        RuntimeWeight::verify_proof_domain_1024(),
+        GeneratedWeight::verify_proof_domain_1024()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_2048(),
+        GeneratedWeight::verify_proof_domain_2048()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_4096(),
+        GeneratedWeight::verify_proof_domain_4096()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_4096_pubs_64(),
+        GeneratedWeight::verify_proof_domain_4096_pubs_64()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_65536_pubs_64(),
+        GeneratedWeight::verify_proof_domain_65536_pubs_64()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_65536_recursive_3_pubs_64(),
+        GeneratedWeight::verify_proof_domain_65536_recursive_3_pubs_64()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_65536_lookup_recursive_3_pubs_64(),
+        GeneratedWeight::verify_proof_domain_65536_lookup_recursive_3_pubs_64()
+    );
+    assert_eq!(
+        RuntimeWeight::verify_proof_domain_65536_xor_lookup_recursive_3_pubs_64(),
+        GeneratedWeight::verify_proof_domain_65536_xor_lookup_recursive_3_pubs_64()
+    );
+
+    assert_eq!(
+        RuntimeWeight::verify_proof_max_supported(),
+        GeneratedWeight::verify_proof_max_supported()
     );
 }
 
