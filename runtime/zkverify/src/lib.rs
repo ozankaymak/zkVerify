@@ -1111,18 +1111,16 @@ impl pallet_verifiers::Config<UltraplonkVerifier> for Runtime {
 }
 
 parameter_types! {
-    // Provisional limits for the prepared verifier index + serialized SRS payload.
+    // Provisional limits for the prepared verifier index payload.
     pub const KimchiMaxPubs: u32 = 64;
     pub const KimchiMaxProofSize: u32 = 262_144;
     pub const KimchiMaxVkSize: u32 = 65_536;
-    pub const KimchiMaxSrsSize: u32 = 262_144;
 }
 
 impl pallet_kimchi_verifier::Config for Runtime {
     type MaxProofSize = KimchiMaxProofSize;
     type MaxPubs = KimchiMaxPubs;
     type MaxVkSize = KimchiMaxVkSize;
-    type MaxSrsSize = KimchiMaxSrsSize;
     type WeightInfo = weights::pallet_kimchi_verifier_verify_proof::ZKVWeight<Runtime>;
 }
 

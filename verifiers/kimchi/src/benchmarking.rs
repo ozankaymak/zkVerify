@@ -15,7 +15,7 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{Config as VerifierConfig, Kimchi as Verifier, Proof, Pubs, Vk};
+use crate::{Config as VerifierConfig, Kimchi as Verifier, KimchiSrsId, Proof, Pubs, Vk};
 use alloc::vec::Vec;
 use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
@@ -27,16 +27,14 @@ pub struct Pallet<T: Config>(crate::Pallet<T>);
 impl<T: crate::Config> Config for T {}
 pub type Call<T> = pallet_verifiers::Call<T, Verifier<T>>;
 
-// Generated from a valid generic Kimchi circuit with domain size 4096 so the
-// serialized SRS stays within the runtime's current MaxSrsSize bound.
+// Generated from a valid generic Kimchi circuit with domain size 4096.
 const BENCH_PROOF: &[u8] = include_bytes!("resources/generated_4096/proof.bin");
 const BENCH_VERIFIER_INDEX: &[u8] = include_bytes!("resources/generated_4096/verifier_index.bin");
-const BENCH_SRS: &[u8] = include_bytes!("resources/generated_4096/srs.bin");
 
 fn benchmark_data<T: VerifierConfig>() -> (Proof, Vk<T>, Pubs) {
     (
         BENCH_PROOF.to_vec(),
-        Vk::new(BENCH_VERIFIER_INDEX.to_vec(), BENCH_SRS.to_vec()),
+        Vk::new(BENCH_VERIFIER_INDEX.to_vec(), KimchiSrsId::Vesta16),
         Vec::new(),
     )
 }
@@ -152,7 +150,6 @@ mod mock {
         type MaxProofSize = ConstU32<262144>;
         type MaxPubs = ConstU32<64>;
         type MaxVkSize = ConstU32<65536>;
-        type MaxSrsSize = ConstU32<262144>;
         type WeightInfo = ();
     }
 

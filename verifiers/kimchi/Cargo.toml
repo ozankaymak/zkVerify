@@ -12,7 +12,9 @@ license = "Apache-2.0"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+ark-ec = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
+ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
 bincode = { version = "2", default-features = false, features = ["alloc", "serde"] }
 codec = { workspace = true }
@@ -24,6 +26,7 @@ kimchi = { git = "https://github.com/o1-labs/proof-systems", tag = "0.7.0", defa
 log = { workspace = true }
 mina-curves = { git = "https://github.com/o1-labs/proof-systems", tag = "0.7.0", default-features = false }
 mina-poseidon = { git = "https://github.com/o1-labs/proof-systems", tag = "0.7.0", default-features = false }
+native = { workspace = true }
 pallet-verifiers = { workspace = true }
 poly-commitment = { git = "https://github.com/o1-labs/proof-systems", tag = "0.7.0", default-features = false }
 rand_chacha = { version = "0.3", default-features = false }
@@ -41,6 +44,8 @@ pallet-balances = { workspace = true }
 default = [ "std" ]
 std = [
 	"ark-ff/std",
+	"ark-ec/std",
+	"ark-poly/std",
 	"ark-serialize/std",
 	"bincode/std",
 	"codec/std",
@@ -50,6 +55,7 @@ std = [
 	"kimchi/std",
 	"log/std",
 	"mina-poseidon/std",
+	"native/std",
 	"pallet-balances/std",
 	"pallet-verifiers/std",
 	"poly-commitment/parallel",

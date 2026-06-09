@@ -23,13 +23,12 @@ pub struct MockConfig;
 impl crate::Config for MockConfig {
     type MaxProofSize = ConstU32<1024>;
     type MaxPubs = ConstU32<4>;
-    type MaxSrsSize = ConstU32<2048>;
     type MaxVkSize = ConstU32<2048>;
     type WeightInfo = ();
 }
 
 fn dummy_vk() -> Vk<MockConfig> {
-    Vk::new(vec![1_u8, 2, 3], vec![4_u8, 5, 6])
+    Vk::new(vec![1_u8, 2, 3], KimchiSrsId::Vesta16)
 }
 
 #[test]
@@ -50,20 +49,7 @@ mod reject {
     fn oversized_verifier_index_is_rejected() {
         let vk = Vk::new(
             vec![0_u8; MockConfig::max_vk_size() as usize + 1],
-            vec![1_u8],
-        );
-
-        assert_err!(
-            Kimchi::<MockConfig>::validate_vk(&vk),
-            VerifyError::InvalidVerificationKey
-        );
-    }
-
-    #[test]
-    fn oversized_srs_is_rejected() {
-        let vk = Vk::new(
-            vec![1_u8],
-            vec![0_u8; MockConfig::max_srs_size() as usize + 1],
+            KimchiSrsId::Vesta16,
         );
 
         assert_err!(
@@ -74,7 +60,7 @@ mod reject {
 
     #[test]
     fn empty_verifier_material_is_rejected() {
-        let vk = Vk::new(Vec::new(), Vec::new());
+        let vk = Vk::new(Vec::new(), KimchiSrsId::Vesta16);
 
         assert_err!(
             Kimchi::<MockConfig>::validate_vk(&vk),
