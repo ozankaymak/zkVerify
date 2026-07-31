@@ -112,6 +112,9 @@ pub type FullWasmExecutor = WasmExecutor<(
 #[cfg(feature = "full-node")]
 pub type FullClient = sc_service::TFullClient<Block, RuntimeApi, FullWasmExecutor>;
 
+/// Environment variable containing the path to a read-only, precomputed Kimchi Vesta16 cache.
+pub const KIMCHI_VESTA16_SEED_CACHE_ENV: &str = "ZKV_KIMCHI_VESTA16_SEED_CACHE";
+
 /// The minimum period of blocks on which justifications will be
 /// imported and generated.
 const GRANDPA_JUSTIFICATION_PERIOD: u32 = 512;
@@ -357,14 +360,39 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 
 /// Prepare all consensus-supported native verifier parameters before block execution.
 pub fn prewarm_native_verifier_parameters(base_path: &Path) -> Result<(), Error> {
+    let seed_cache_path = std::env::var_os(KIMCHI_VESTA16_SEED_CACHE_ENV)
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from);
+    prewarm_native_verifier_parameters_with_seed(base_path, seed_cache_path.as_deref())
+}
+
+fn prewarm_native_verifier_parameters_with_seed(
+    base_path: &Path,
+    seed_cache_path: Option<&Path>,
+) -> Result<(), Error> {
     let cache_root = base_path.join("native-verifier-parameters");
     let started_at = Instant::now();
-    log::info!(
-        "Prewarming Kimchi native verifier parameters for Vesta SRS 2^16 using cache {}",
-        cache_root.display()
-    );
-    let status =
-        native::vesta::prewarm_vesta16_srs(&cache_root).map_err(Error::KimchiNativePrewarm)?;
+    if let Some(seed_cache_path) = seed_cache_path {
+        log::info!(
+            "Prewarming Kimchi native verifier parameters for Vesta SRS 2^16 using local cache {} \
+             and read-only seed cache {}",
+            cache_root.display(),
+            seed_cache_path.display(),
+        );
+    } else {
+        log::info!(
+            "Prewarming Kimchi native verifier parameters for Vesta SRS 2^16 using local cache {}",
+            cache_root.display()
+        );
+    }
+
+    let status = match seed_cache_path {
+        Some(seed_cache_path) => {
+            native::vesta::prewarm_vesta16_srs_with_seed(&cache_root, seed_cache_path)
+        }
+        None => native::vesta::prewarm_vesta16_srs(&cache_root),
+    }
+    .map_err(Error::KimchiNativePrewarm)?;
     log::info!(
         "Prewarmed Kimchi native verifier parameters in {:?} ({status:?})",
         started_at.elapsed(),

@@ -39,3 +39,38 @@ Supporting such a change requires:
 Upstream expectations about future SRS sizes are planning input, not a
 permanent protocol guarantee. Reconfirm them before integrating future Kimchi
 or o1js hard-fork changes.
+
+## Experimental precomputed cache seed
+
+A node can load the precomputed Vesta16 Lagrange bases from an authenticated,
+read-only seed cache by setting:
+
+```shell
+export ZKV_KIMCHI_VESTA16_SEED_CACHE=/absolute/path/to/kimchi-vesta16-v1.cache
+```
+
+Use an absolute path: Zombienet starts nodes in separate working directories,
+so a relative path may resolve differently for each child process.
+
+The seed file can be taken from another node's
+`<base-path>/native-verifier-parameters/kimchi-vesta16-v1.cache`. It is not
+copied into the new node's base path. Startup uses the first usable source in
+this order:
+
+1. the node's local base-path cache;
+2. the configured read-only seed cache;
+3. local generation and persistence.
+
+The seed is treated as untrusted input. Its format, parameter fingerprint,
+point encodings, complete Lagrange bases, and trailing data are all validated
+before any cached basis is installed. Missing, corrupt, or incompatible seeds
+are logged and fall back to local generation.
+
+The environment variable is inherited by native Zombienet child processes, so
+one cache can be shared by multiple fresh-base-path nodes without committing or
+publishing the generated file.
+
+An experiment has exercised the seed only when every fresh-base-path node logs
+`(LoadedFromSeed)`. A `(Generated)` or `(GeneratedWithoutCache)` status means
+that the seed was unavailable or invalid and startup fell back to cold
+generation.

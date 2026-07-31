@@ -112,6 +112,8 @@ pub fn vesta16_srs_msm(
 pub enum Vesta16PrewarmStatus {
     /// All precomputed Lagrange bases were loaded from a validated local cache.
     Loaded,
+    /// All precomputed Lagrange bases were loaded from a validated read-only seed cache.
+    LoadedFromSeed,
     /// The parameters were generated and persisted to the local cache.
     Generated,
     /// The parameters were generated, but the local cache could not be persisted.
@@ -126,6 +128,22 @@ pub enum Vesta16PrewarmStatus {
 #[cfg(feature = "std")]
 pub fn prewarm_vesta16_srs(cache_root: &Path) -> Result<Vesta16PrewarmStatus, VerifyError> {
     native_builtin_srs::prewarm(cache_root)
+}
+
+/// Builds and validates every supported Vesta16 Lagrange basis, using
+/// `seed_cache_path` as a read-only fallback when the local cache is unavailable
+/// or invalid.
+///
+/// A valid local cache always takes precedence. The seed is fully authenticated
+/// before use and is never copied to or modified in the local cache directory.
+/// If neither cache is usable, the parameters are generated and persisted
+/// locally as usual.
+#[cfg(feature = "std")]
+pub fn prewarm_vesta16_srs_with_seed(
+    cache_root: &Path,
+    seed_cache_path: &Path,
+) -> Result<Vesta16PrewarmStatus, VerifyError> {
+    native_builtin_srs::prewarm_with_seed(cache_root, seed_cache_path)
 }
 
 /// Native interfaces for Vesta verifier parameters.
@@ -479,8 +497,27 @@ mod native_builtin_srs {
         prewarm_with_shapes(cache_root, &supported_lagrange_shapes())
     }
 
+    pub fn prewarm_with_seed(
+        cache_root: &Path,
+        seed_cache_path: &Path,
+    ) -> Result<Vesta16PrewarmStatus, VerifyError> {
+        prewarm_with_shapes_and_seed(
+            cache_root,
+            Some(seed_cache_path),
+            &supported_lagrange_shapes(),
+        )
+    }
+
     fn prewarm_with_shapes(
         cache_root: &Path,
+        shapes: &[LagrangeShape],
+    ) -> Result<Vesta16PrewarmStatus, VerifyError> {
+        prewarm_with_shapes_and_seed(cache_root, None, shapes)
+    }
+
+    fn prewarm_with_shapes_and_seed(
+        cache_root: &Path,
+        seed_cache_path: Option<&Path>,
         shapes: &[LagrangeShape],
     ) -> Result<Vesta16PrewarmStatus, VerifyError> {
         let _guard = VESTA16_PREWARM_LOCK
@@ -501,6 +538,24 @@ mod native_builtin_srs {
                 );
             }
             Err(_) => {}
+        }
+
+        if let Some(seed_cache_path) =
+            seed_cache_path.filter(|seed_cache_path| *seed_cache_path != cache_path)
+        {
+            match load_lagrange_cache(seed_cache_path, shapes) {
+                Ok(cached_bases) => {
+                    install_cached_bases(cached_bases)?;
+                    return Ok(Vesta16PrewarmStatus::LoadedFromSeed);
+                }
+                Err(error) => {
+                    log::warn!(
+                        "Ignoring unavailable or invalid Kimchi Vesta16 parameter seed cache at \
+                         {}: {error}",
+                        seed_cache_path.display()
+                    );
+                }
+            }
         }
 
         prewarm_shapes(shapes)?;
@@ -1062,6 +1117,28 @@ mod native_builtin_srs {
         cache_root: &Path,
         domain_log2_sizes: &[u8],
     ) -> Result<Vesta16PrewarmStatus, VerifyError> {
+        prewarm_domains_with_optional_seed_for_test(cache_root, None, domain_log2_sizes)
+    }
+
+    #[cfg(test)]
+    pub(super) fn prewarm_domains_with_seed_for_test(
+        cache_root: &Path,
+        seed_cache_path: &Path,
+        domain_log2_sizes: &[u8],
+    ) -> Result<Vesta16PrewarmStatus, VerifyError> {
+        prewarm_domains_with_optional_seed_for_test(
+            cache_root,
+            Some(seed_cache_path),
+            domain_log2_sizes,
+        )
+    }
+
+    #[cfg(test)]
+    fn prewarm_domains_with_optional_seed_for_test(
+        cache_root: &Path,
+        seed_cache_path: Option<&Path>,
+        domain_log2_sizes: &[u8],
+    ) -> Result<Vesta16PrewarmStatus, VerifyError> {
         if domain_log2_sizes.iter().any(|domain_log2_size| {
             !(VESTA16_MIN_DOMAIN_LOG2_SIZE..=VESTA16_MAX_DOMAIN_LOG2_SIZE)
                 .contains(domain_log2_size)
@@ -1073,7 +1150,7 @@ mod native_builtin_srs {
             .into_iter()
             .filter(|shape| domain_log2_sizes.contains(&shape.domain_log2_size))
             .collect::<Vec<_>>();
-        prewarm_with_shapes(cache_root, &shapes)
+        prewarm_with_shapes_and_seed(cache_root, seed_cache_path, &shapes)
     }
 
     #[cfg(test)]
@@ -1313,6 +1390,170 @@ mod tests {
     }
 
     #[test]
+    fn vesta16_prewarm_loads_read_only_seed_without_writing_local_cache() {
+        let seed_root = temporary_cache_root("vesta16-prewarm-read-only-seed");
+        let local_root = temporary_cache_root("vesta16-prewarm-read-only-seed-local");
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_for_test(&seed_root, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+
+        let seed_path = native_builtin_srs::cache_path_for_test(&seed_root);
+        let seed_bytes = fs::read(&seed_path).expect("reading seed cache succeeds");
+        let original_permissions = fs::metadata(&seed_path)
+            .expect("reading seed cache metadata succeeds")
+            .permissions();
+        let mut read_only_permissions = original_permissions.clone();
+        read_only_permissions.set_readonly(true);
+        fs::set_permissions(&seed_path, read_only_permissions)
+            .expect("making seed cache read-only succeeds");
+
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_with_seed_for_test(&local_root, &seed_path, &[3]),
+            Ok(Vesta16PrewarmStatus::LoadedFromSeed)
+        );
+        assert!(
+            !local_root.exists(),
+            "loading a seed must not create the local cache root"
+        );
+        assert_eq!(
+            fs::read(&seed_path).expect("reading seed cache again succeeds"),
+            seed_bytes,
+            "loading a seed must not modify it"
+        );
+
+        fs::set_permissions(&seed_path, original_permissions)
+            .expect("restoring seed cache permissions succeeds");
+        fs::remove_dir_all(seed_root).expect("seed cache cleanup succeeds");
+    }
+
+    #[test]
+    fn vesta16_prewarm_rejects_corrupt_seed_and_generates_local_cache() {
+        let seed_root = temporary_cache_root("vesta16-prewarm-corrupt-seed");
+        let local_root = temporary_cache_root("vesta16-prewarm-corrupt-seed-local");
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_for_test(&seed_root, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+
+        let seed_path = native_builtin_srs::cache_path_for_test(&seed_root);
+        let mut corrupt_seed = fs::read(&seed_path).expect("reading seed cache succeeds");
+        let first_point_byte = corrupt_seed
+            .get_mut(native_builtin_srs::first_cached_point_offset_for_test())
+            .expect("seed cache contains a basis point");
+        *first_point_byte ^= 1;
+        fs::write(&seed_path, &corrupt_seed).expect("corrupting seed cache succeeds");
+
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_with_seed_for_test(&local_root, &seed_path, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+        assert!(
+            native_builtin_srs::cache_path_for_test(&local_root).is_file(),
+            "invalid seed fallback must persist a local cache"
+        );
+        assert_eq!(
+            fs::read(&seed_path).expect("reading corrupt seed again succeeds"),
+            corrupt_seed,
+            "invalid seed fallback must not modify the seed"
+        );
+
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_with_seed_for_test(&local_root, &seed_path, &[3]),
+            Ok(Vesta16PrewarmStatus::Loaded),
+            "a valid local cache must take precedence over an invalid seed"
+        );
+
+        fs::remove_dir_all(seed_root).expect("seed cache cleanup succeeds");
+        fs::remove_dir_all(local_root).expect("local cache cleanup succeeds");
+    }
+
+    #[test]
+    fn vesta16_prewarm_uses_valid_seed_when_local_cache_is_corrupt() {
+        let seed_root = temporary_cache_root("vesta16-prewarm-valid-seed");
+        let local_root = temporary_cache_root("vesta16-prewarm-corrupt-local");
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_for_test(&seed_root, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_for_test(&local_root, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+
+        let seed_path = native_builtin_srs::cache_path_for_test(&seed_root);
+        let local_path = native_builtin_srs::cache_path_for_test(&local_root);
+        let mut corrupt_local = fs::read(&local_path).expect("reading local cache succeeds");
+        let first_point_byte = corrupt_local
+            .get_mut(native_builtin_srs::first_cached_point_offset_for_test())
+            .expect("local cache contains a basis point");
+        *first_point_byte ^= 1;
+        fs::write(&local_path, &corrupt_local).expect("corrupting local cache succeeds");
+
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_with_seed_for_test(&local_root, &seed_path, &[3]),
+            Ok(Vesta16PrewarmStatus::LoadedFromSeed)
+        );
+        assert_eq!(
+            fs::read(&local_path).expect("reading corrupt local cache again succeeds"),
+            corrupt_local,
+            "loading the seed must not overwrite an invalid local cache"
+        );
+
+        fs::remove_dir_all(seed_root).expect("seed cache cleanup succeeds");
+        fs::remove_dir_all(local_root).expect("local cache cleanup succeeds");
+    }
+
+    #[test]
+    fn vesta16_prewarm_missing_seed_generates_local_cache() {
+        let missing_seed_root = temporary_cache_root("vesta16-prewarm-missing-seed");
+        let missing_seed_path = native_builtin_srs::cache_path_for_test(&missing_seed_root);
+        let local_root = temporary_cache_root("vesta16-prewarm-missing-seed-local");
+
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_with_seed_for_test(
+                &local_root,
+                &missing_seed_path,
+                &[3]
+            ),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+        assert!(
+            !missing_seed_root.exists(),
+            "missing seed fallback must not create the seed cache root"
+        );
+        assert!(
+            native_builtin_srs::cache_path_for_test(&local_root).is_file(),
+            "missing seed fallback must persist a local cache"
+        );
+
+        fs::remove_dir_all(local_root).expect("local cache cleanup succeeds");
+    }
+
+    #[test]
+    fn vesta16_generated_seed_cache_is_deterministic() {
+        let first_root = temporary_cache_root("vesta16-prewarm-deterministic-first");
+        let second_root = temporary_cache_root("vesta16-prewarm-deterministic-second");
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_for_test(&first_root, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+        assert_eq!(
+            native_builtin_srs::prewarm_domains_for_test(&second_root, &[3]),
+            Ok(Vesta16PrewarmStatus::Generated)
+        );
+
+        let first_cache = fs::read(native_builtin_srs::cache_path_for_test(&first_root))
+            .expect("reading first generated cache succeeds");
+        let second_cache = fs::read(native_builtin_srs::cache_path_for_test(&second_root))
+            .expect("reading second generated cache succeeds");
+        assert_eq!(first_cache, second_cache);
+
+        fs::remove_dir_all(first_root).expect("first cache cleanup succeeds");
+        fs::remove_dir_all(second_root).expect("second cache cleanup succeeds");
+    }
+
+    #[test]
     fn vesta16_prewarm_rebuilds_a_corrupt_cache() {
         let cache_root = temporary_cache_root("vesta16-prewarm-corrupt");
         native_builtin_srs::prewarm_domains_for_test(&cache_root, &[3])
@@ -1417,16 +1658,28 @@ mod tests {
     #[test]
     #[ignore = "expensive full consensus-parameter prewarm"]
     fn vesta16_prewarm_accepts_all_consensus_domains() {
-        let cache_root = temporary_cache_root("vesta16-prewarm-all");
+        let seed_root = temporary_cache_root("vesta16-prewarm-all-seed");
+        let local_root = temporary_cache_root("vesta16-prewarm-all-local");
         assert_eq!(
-            prewarm_vesta16_srs(&cache_root),
+            prewarm_vesta16_srs(&seed_root),
             Ok(Vesta16PrewarmStatus::Generated)
         );
         assert_eq!(
-            prewarm_vesta16_srs(&cache_root),
+            prewarm_vesta16_srs(&seed_root),
             Ok(Vesta16PrewarmStatus::Loaded)
         );
-        fs::remove_dir_all(cache_root).expect("test cache cleanup succeeds");
+        assert_eq!(
+            prewarm_vesta16_srs_with_seed(
+                &local_root,
+                &native_builtin_srs::cache_path_for_test(&seed_root)
+            ),
+            Ok(Vesta16PrewarmStatus::LoadedFromSeed)
+        );
+        assert!(
+            !local_root.exists(),
+            "loading the full seed must not create the local cache root"
+        );
+        fs::remove_dir_all(seed_root).expect("seed cache cleanup succeeds");
     }
 
     #[test]
