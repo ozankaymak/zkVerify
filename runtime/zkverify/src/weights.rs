@@ -36,6 +36,7 @@ pub mod pallet_kimchi_verifier;
 pub mod pallet_kimchi_verifier_verify_proof;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
+pub mod pallet_pickles_verifier;
 pub mod pallet_plonky2_verifier;
 pub mod pallet_plonky2_verifier_verify_proof;
 pub mod pallet_preimage;

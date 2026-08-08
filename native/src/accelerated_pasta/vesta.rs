@@ -106,6 +106,15 @@ pub fn vesta16_srs_msm(
     utils::decode_proj_sw(&result)
 }
 
+/// Checks one Pickles recursion accumulator against the fixed Vesta16 SRS.
+#[allow(clippy::result_unit_err)]
+pub fn vesta16_accumulator_check(commitment: Vesta, challenges: &[Fp]) -> Result<bool, ()> {
+    if challenges.len() != VESTA16_SRS_LOG2_SIZE as usize {
+        return Err(());
+    }
+    host_calls::vesta16_accumulator_check(&utils::encode(commitment), &utils::encode(challenges))
+}
+
 /// Result of preparing all Vesta16 verifier parameters.
 #[cfg(feature = "std")]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -168,6 +177,15 @@ pub trait HostCalls {
     ) -> AllocateAndReturnByCodec<Result<Vec<u8>, ()>> {
         native_builtin_srs::srs_msm(srs_len, h_scalar, g_scalars, extra_bases, extra_scalars)
     }
+
+    /// Pickles recursion-accumulator check backed by the fixed Vesta16 SRS.
+    #[allow(clippy::result_unit_err)]
+    fn vesta16_accumulator_check(
+        commitment: PassFatPointerAndRead<&[u8]>,
+        challenges: PassFatPointerAndRead<&[u8]>,
+    ) -> AllocateAndReturnByCodec<Result<bool, ()>> {
+        native_builtin_srs::accumulator_check(commitment, challenges)
+    }
 }
 
 #[cfg(feature = "std")]
@@ -183,9 +201,12 @@ mod native_builtin_srs {
     };
 
     use ark_ec::VariableBaseMSM;
+    use ark_ff::Zero;
     use ark_scale::ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use blake2::{digest::consts::U32, Blake2b, Digest};
-    use poly_commitment::{ipa::SRS as IpaSrs, PolyComm, SRS as _};
+    use poly_commitment::{
+        commitment::b_poly_coefficients, ipa::SRS as IpaSrs, PolyComm, SRS as _,
+    };
 
     use super::*;
 
@@ -904,6 +925,30 @@ mod native_builtin_srs {
 
         let result = ProjectiveVesta::msm(&bases, &scalars).map_err(|_| ())?;
         Ok(utils::encode_proj_sw(&result))
+    }
+
+    pub fn accumulator_check(commitment: &[u8], challenges: &[u8]) -> Result<bool, ()> {
+        let commitment = utils::decode::<Vesta>(commitment)?;
+        let challenges = utils::decode::<Vec<Fp>>(challenges)?;
+        if challenges.len() != VESTA16_SRS_LOG2_SIZE as usize {
+            return Err(());
+        }
+        let coefficients = b_poly_coefficients(&challenges);
+        if coefficients.len() != VESTA16_SRS_SIZE {
+            return Err(());
+        }
+        let srs = checked_srs().map_err(|_| ())?;
+        let mut bases = Vec::with_capacity(VESTA16_SRS_SIZE + 1);
+        bases.extend_from_slice(&srs.g);
+        bases.push(commitment);
+        let mut scalars = coefficients
+            .into_iter()
+            .map(core::ops::Neg::neg)
+            .collect::<Vec<_>>();
+        scalars.push(Fp::from(1_u64));
+        Ok(ProjectiveVesta::msm(&bases, &scalars)
+            .map_err(|_| ())?
+            .is_zero())
     }
 
     fn vesta16_srs_matches_expected(srs: &IpaSrs<Vesta>) -> bool {

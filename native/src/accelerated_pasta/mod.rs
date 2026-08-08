@@ -15,4 +15,5 @@
 
 //! Native acceleration for Pasta curves.
 
+pub mod pallas;
 pub mod vesta;

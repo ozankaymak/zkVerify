@@ -28,6 +28,7 @@ const { PROOF: EZKL_PROOF, PUBS: EZKL_PUBS, VK: EZKL_VK } = require('./ezkl_data
 const { PROOF: FFLONK_PROOF, PUBS: FFLONK_PUBS, VK: FFLONK_VK } = require('./fflonk_data.js');
 const { PROOF: GROTH16_PROOF, PUBS: GROTH16_PUBS, VK: GROTH16_VK } = require('./groth16_data.js');
 const { PROOF: KIMCHI_PROOF, PUBS: KIMCHI_PUBS, VK: KIMCHI_VK } = require('./kimchi_data.js');
+const { PROOF: PICKLES_PROOF, PUBS: PICKLES_PUBS, VK: PICKLES_VK } = require('./pickles_data.js');
 const { PROOF: RISC0_V2_2_PROOF, PUBS: RISC0_V2_2_PUBS, VK: RISC0_V2_2_VK } = require('./risc0_v2_2_data.js');
 const { PROOF: RISC0_V3_0_PROOF, PUBS: RISC0_V3_0_PUBS, VK: RISC0_V3_0_VK } = require('./risc0_v3_0_data.js');
 const { ZK_PROOF: ULTRAHONK_V0_84_ZK_PROOF, PLAIN_PROOF: ULTRAHONK_V0_84_PLAIN_PROOF, PUBS: ULTRAHONK_V0_84_PUBS, VK: ULTRAHONK_V0_84_VK } = require('./ultrahonk_v0_84_data.js');
@@ -80,6 +81,11 @@ async function run(nodeName, networkInfo, _args) {
             name: "Kimchi",
             pallet: api.tx.settlementKimchiPallet,
             args: [{ 'Vk': KIMCHI_VK }, KIMCHI_PROOF, KIMCHI_PUBS],
+        },
+        {
+            name: "Pickles",
+            pallet: api.tx.settlementPicklesPallet,
+            args: [{ 'Vk': PICKLES_VK }, PICKLES_PROOF, PICKLES_PUBS],
         },
         {
             name: "Ultrahonk.V.3.0 (ZK)",

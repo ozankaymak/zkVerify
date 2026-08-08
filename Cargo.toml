@@ -11,6 +11,7 @@ members = [
     "runtime/zkverify",
     "primitives/hp-dispatch",
     "primitives/hp-on-proof-verified",
+    "primitives/pickles",
     "native",
     "pallets/aggregate",
     "pallets/verifiers",
@@ -22,6 +23,7 @@ members = [
     "verifiers/fflonk",
     "verifiers/groth16",
     "verifiers/kimchi",
+    "verifiers/pickles",
     "verifiers/risc0",
     "verifiers/risc0/risc0-derive",
     "verifiers/ultrahonk",
@@ -55,10 +57,12 @@ members = [
 exclude = [
     "utils/generate-bags/node-runtime",
     "utils/kimchi-fixture-generator",
+    "utils/pickles-fixture-generator",
 ]
 
 [workspace.dependencies]
 anyhow = { version = "1.0", default-features = false }
+ark-ec = { version = "0.5", default-features = false }
 ark-ff = { version = "0.5", default-features = false }
 ark-poly = { version = "0.5", default-features = false }
 ark-serialize = { version = "0.5", default-features = false }
@@ -153,6 +157,8 @@ pallet-ezkl-verifier = { path = "verifiers/ezkl", default-features = false }
 pallet-fflonk-verifier = { path = "verifiers/fflonk", default-features = false }
 pallet-groth16-verifier = { path = "verifiers/groth16", default-features = false }
 pallet-kimchi-verifier = { path = "verifiers/kimchi", default-features = false }
+pallet-pickles-verifier = { path = "verifiers/pickles", default-features = false }
+pickles-format = { path = "primitives/pickles", default-features = false }
 pallet-risc0-verifier = { path = "verifiers/risc0", default-features = false }
 pallet-ultrahonk-verifier = { path = "verifiers/ultrahonk", default-features = false }
 pallet-ultraplonk-verifier = { path = "verifiers/ultraplonk", default-features = false }

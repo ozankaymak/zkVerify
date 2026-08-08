@@ -235,6 +235,9 @@ pub enum Error {
 
     #[error("Failed to prewarm Kimchi native verifier parameters: {0:?}")]
     KimchiNativePrewarm(native::VerifyError),
+
+    #[error("Failed to prewarm Pickles native verifier parameters: {0:?}")]
+    PicklesNativePrewarm(native::VerifyError),
 }
 
 /// Identifies the variant of the chain.
@@ -358,6 +361,15 @@ pub fn open_database(db_source: &DatabaseSource) -> Result<Arc<dyn Database>, Er
 /// Prepare all consensus-supported native verifier parameters before block execution.
 pub fn prewarm_native_verifier_parameters(base_path: &Path) -> Result<(), Error> {
     let cache_root = base_path.join("native-verifier-parameters");
+    let pickles_started_at = Instant::now();
+    log::info!("Prewarming authenticated Pickles Pallas SRS 2^15 parameters");
+    let pickles_status =
+        native::pallas::prewarm_pallas15_srs(&cache_root).map_err(Error::PicklesNativePrewarm)?;
+    log::info!(
+        "Prewarmed Pickles native verifier parameters in {:?} ({pickles_status:?})",
+        pickles_started_at.elapsed(),
+    );
+
     let started_at = Instant::now();
     log::info!(
         "Prewarming Kimchi native verifier parameters for Vesta SRS 2^16 using cache {}",

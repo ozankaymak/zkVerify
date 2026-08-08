@@ -101,6 +101,7 @@ pallet-risc0-verifier = { workspace = true, features = [
 pallet-ultrahonk-verifier = { workspace = true }
 pallet-ultraplonk-verifier = { workspace = true }
 pallet-kimchi-verifier = { workspace = true }
+pallet-pickles-verifier = { workspace = true }
 pallet-sp1-verifier = { workspace = true }
 pallet-tee-verifier = { workspace = true }
 hp-dispatch = { workspace = true }
@@ -156,6 +157,7 @@ runtime-benchmarks = [
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
+	"pallet-pickles-verifier/runtime-benchmarks",
 	"pallet-plonky2-verifier/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
@@ -231,6 +233,7 @@ std = [
 	"pallet-message-queue/std",
 	"pallet-multisig/std",
 	"pallet-offences/std",
+	"pallet-pickles-verifier/std",
 	"pallet-plonky2-verifier/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",

@@ -1,0 +1,16 @@
+[package]
+name = "pickles-format"
+version = "0.1.0"
+description = "Canonical client-to-runtime types for zkVerify Pickles proofs."
+homepage.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license = "Apache-2.0"
+
+[dependencies]
+serde = { workspace = true, features = [ "alloc", "derive" ] }
+
+[features]
+default = [ "std" ]
+std = [ "serde/std" ]

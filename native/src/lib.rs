@@ -61,6 +61,9 @@ pub use groth16::groth_16_bn_254_verify::HostFunctions as Groth16Bn254VerifierHo
 pub use accelerated_bn::bn254;
 #[cfg(feature = "std")]
 pub use accelerated_bn::bn254::host_calls::HostFunctions as AcceleratedBn254HostFunctions;
+pub use accelerated_pasta::pallas;
+#[cfg(feature = "std")]
+pub use accelerated_pasta::pallas::host_calls::HostFunctions as AcceleratedPallasHostFunctions;
 pub use accelerated_pasta::vesta;
 #[cfg(feature = "std")]
 pub use accelerated_pasta::vesta::host_calls::HostFunctions as AcceleratedVestaHostFunctions;
@@ -71,5 +74,6 @@ pub type HLNativeHostFunctions = (
     Groth16Bls12VerifierHostFunctions,
     Risc0AccelerateHostFunctions,
     AcceleratedBn254HostFunctions,
+    AcceleratedPallasHostFunctions,
     AcceleratedVestaHostFunctions,
 );

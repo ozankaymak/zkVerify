@@ -7250,6 +7250,7 @@ dependencies = [
  "ark-bn254-ext",
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
  "ark-scale",
  "blake2 0.10.6",
  "hp-groth16",
@@ -8869,6 +8870,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-pickles-verifier"
+version = "0.1.0"
+dependencies = [
+ "ark-ec 0.5.0",
+ "ark-ff 0.5.0",
+ "ark-poly 0.5.0",
+ "ark-serialize 0.5.0",
+ "bincode",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "kimchi",
+ "log",
+ "mina-curves",
+ "mina-poseidon",
+ "native",
+ "pallet-balances",
+ "pallet-verifiers",
+ "parity-scale-codec",
+ "pickles-format",
+ "poly-commitment",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+]
+
+[[package]]
 name = "pallet-plonky2-verifier"
 version = "0.1.1"
 dependencies = [
@@ -9956,6 +9987,13 @@ dependencies = [
  "fixedbitset 0.5.7",
  "hashbrown 0.15.5",
  "indexmap 2.13.0",
+]
+
+[[package]]
+name = "pickles-format"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -19627,6 +19665,7 @@ dependencies = [
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-offences",
+ "pallet-pickles-verifier",
  "pallet-plonky2-verifier",
  "pallet-preimage",
  "pallet-proxy",

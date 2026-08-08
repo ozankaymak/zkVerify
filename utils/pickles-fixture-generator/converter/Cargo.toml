@@ -1,0 +1,28 @@
+[package]
+name = "pickles-fixture-converter"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Convert o1js Pickles JSON proofs into zkVerify's canonical PicklesV1 format"
+publish = false
+
+[workspace]
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+bincode = { version = "2", default-features = false, features = ["alloc", "serde", "std"] }
+hex = "0.4"
+# Keep this revision synchronized with the stable Mina Pickles wire types used
+# by the o1js 2.15.0 reference fixtures. This dependency is converter-only.
+mina-p2p-messages = { git = "https://github.com/o1-labs/mina-rust.git", rev = "ab69eaed85fc71859fedbb2c36b2030294084a82" }
+pickles-format = { path = "../../../primitives/pickles" }
+rsexp = "0.2.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# OpenMina's stable wire package relies on these arkworks conversions. The
+# converter is a standalone workspace, so repeat OpenMina's workspace patches.
+[patch.crates-io]
+num-bigint = { git = "https://github.com/openmina/num-bigint", branch = "rebase-onstack" }
+num-rational = { git = "https://github.com/openmina/num-rational", branch = "rebase-onstack" }

@@ -174,6 +174,31 @@ fn pallet_settlement_kimchi() {
 }
 
 #[test]
+fn pallet_settlement_pickles() {
+    use pallet_pickles_verifier::{Pickles, PicklesProfileId, Pubs, Vk, WeightInfo};
+
+    let proof = Vec::<u8>::new();
+    let pubs = Pubs {
+        public_input: Vec::new(),
+        public_output: Vec::new(),
+    };
+
+    assert_eq!(
+        <<Runtime as pallet_verifiers::Config<Pickles<Runtime>>>::WeightInfo as
+            pallet_verifiers::WeightInfo<Pickles<Runtime>>>::verify_proof(&proof, &pubs),
+        crate::weights::pallet_pickles_verifier::ZKVWeight::<Runtime>::verify_proof()
+    );
+    assert_eq!(
+        <<Runtime as pallet_verifiers::Config<Pickles<Runtime>>>::WeightInfo as
+            pallet_verifiers::WeightInfo<Pickles<Runtime>>>::register_vk(&Vk::new(
+            Vec::new(),
+            PicklesProfileId::PicklesV1,
+        )),
+        crate::weights::pallet_pickles_verifier::ZKVWeight::<Runtime>::register_vk()
+    );
+}
+
+#[test]
 fn pallet_settlement_kimchi_verify_proof() {
     use pallet_kimchi_verifier::{WeightInfo, WeightInfoVerifyProof};
 

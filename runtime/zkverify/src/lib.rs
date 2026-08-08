@@ -1170,6 +1170,45 @@ impl pallet_verifiers::Config<KimchiVerifier> for Runtime {
     type Currency = Balances;
 }
 
+// Consensus limits for canonical PicklesV1 proof and verifier-index payloads.
+parameter_types! {
+    pub const PicklesMaxProofSize: u32 = 65_536;
+    pub const PicklesMaxPubs: u32 = 1_024;
+    pub const PicklesMaxVkSize: u32 = 4_096;
+}
+
+impl pallet_pickles_verifier::Config for Runtime {
+    type MaxProofSize = PicklesMaxProofSize;
+    type MaxPubs = PicklesMaxPubs;
+    type MaxVkSize = PicklesMaxVkSize;
+    type WeightInfo = weights::pallet_pickles_verifier::ZKVWeight<Runtime>;
+}
+
+const_assert!(
+    PicklesMaxProofSize::get() as usize
+        <= pallet_pickles_verifier::PicklesProfileId::PicklesV1.max_proof_size()
+);
+const_assert!(
+    PicklesMaxPubs::get() as usize
+        <= pallet_pickles_verifier::PicklesProfileId::PicklesV1.max_public_fields()
+);
+const_assert!(
+    PicklesMaxVkSize::get() as usize
+        <= pallet_pickles_verifier::PicklesProfileId::PicklesV1.max_vk_size()
+);
+
+pub type PicklesVerifier = pallet_pickles_verifier::Pickles<Runtime>;
+
+impl pallet_verifiers::Config<PicklesVerifier> for Runtime {
+    type OnProofVerified = Aggregate;
+    type Ticket = VkRegistrationHoldConsideration;
+    type WeightInfo = pallet_pickles_verifier::PicklesWeight<
+        weights::pallet_pickles_verifier::ZKVWeight<Runtime>,
+    >;
+    #[cfg(feature = "runtime-benchmarks")]
+    type Currency = Balances;
+}
+
 parameter_types! {
     pub const Plonky2MaxPubsSize: u32 = 512; // eq of 64 public inputs
     pub const Plonky2MaxProofSize: u32 = 262_144;
@@ -1288,6 +1327,7 @@ construct_runtime!(
         SettlementEzklPallet: pallet_ezkl_verifier = 169,
         SettlementTeePallet: pallet_tee_verifier = 170,
         SettlementKimchiPallet: pallet_kimchi_verifier = 171,
+        SettlementPicklesPallet: pallet_pickles_verifier = 172,
     }
 );
 
@@ -1385,6 +1425,7 @@ mod benches {
         [pallet_groth16_verifier, Groth16VerifierBench::<Runtime>]
         [pallet_kimchi_verifier, KimchiVerifierBench::<Runtime>]
         [pallet_kimchi_verifier_verify_proof, KimchiVerifierVerifyProofBench::<Runtime>]
+        [pallet_pickles_verifier, PicklesVerifierBench::<Runtime>]
         [pallet_risc0_verifier, Risc0VerifierBench::<Runtime>]
         [pallet_risc0_verifier_verify_proof, Risc0VerifierVerifyProofBench::<Runtime>]
         [pallet_risc0_verifier_extend, Risc0VerifierExtendBench::<Runtime>]
@@ -1976,6 +2017,7 @@ impl_runtime_apis! {
             use pallet_groth16_verifier::benchmarking::Pallet as Groth16VerifierBench;
             use pallet_kimchi_verifier::benchmarking::Pallet as KimchiVerifierBench;
             use pallet_kimchi_verifier::benchmarking_verify_proof::Pallet as KimchiVerifierVerifyProofBench;
+            use pallet_pickles_verifier::benchmarking::Pallet as PicklesVerifierBench;
             use pallet_risc0_verifier::benchmarking::Pallet as Risc0VerifierBench;
             use pallet_risc0_verifier::benchmarking_verify_proof::Pallet as Risc0VerifierVerifyProofBench;
             use pallet_risc0_verifier::extend_benchmarking::Pallet as Risc0VerifierExtendBench;
@@ -2017,6 +2059,7 @@ impl_runtime_apis! {
             use pallet_groth16_verifier::benchmarking::Pallet as Groth16VerifierBench;
             use pallet_kimchi_verifier::benchmarking::Pallet as KimchiVerifierBench;
             use pallet_kimchi_verifier::benchmarking_verify_proof::Pallet as KimchiVerifierVerifyProofBench;
+            use pallet_pickles_verifier::benchmarking::Pallet as PicklesVerifierBench;
             use pallet_risc0_verifier::benchmarking::Pallet as Risc0VerifierBench;
             use pallet_risc0_verifier::benchmarking_verify_proof::Pallet as Risc0VerifierVerifyProofBench;
             use pallet_risc0_verifier::extend_benchmarking::Pallet as Risc0VerifierExtendBench;

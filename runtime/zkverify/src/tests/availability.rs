@@ -352,6 +352,31 @@ fn pallet_kimchi_availability() {
 }
 
 #[test]
+fn pallet_pickles_availability() {
+    test().execute_with(|| {
+        let dummy_origin = AccountId32::new([0; 32]);
+        let dummy_vk = pallet_pickles_verifier::Vk::<Runtime>::new(
+            vec![0_u8],
+            pallet_pickles_verifier::PicklesProfileId::PicklesV1,
+        );
+        let dummy_proof = Vec::new();
+        let dummy_pubs = pallet_pickles_verifier::Pubs {
+            public_input: Vec::new(),
+            public_output: Vec::new(),
+        };
+
+        assert!(SettlementPicklesPallet::submit_proof(
+            RuntimeOrigin::signed(dummy_origin),
+            VkOrHash::from_vk(dummy_vk),
+            dummy_proof.into(),
+            dummy_pubs.into(),
+            None,
+        )
+        .is_err());
+    });
+}
+
+#[test]
 fn pallet_sp1_availability() {
     test().execute_with(|| {
         let dummy_origin = AccountId32::new([0; 32]);
